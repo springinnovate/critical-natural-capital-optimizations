@@ -115,7 +115,26 @@ def rasterize_with_base(
     Returns:
         None
     """
-    pass
+    n_cols, n_rows = base_raster_info['raster_size']
+
+    raster_driver = gdal.GetDriverByName(
+        DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[0])
+    new_raster = raster_driver.Create(
+        target_raster_path, n_cols, n_rows, 1, base_raster_info['datatype'],
+        options=DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])
+    new_raster.SetProjection(base_raster_info['projection_wkt'])
+    new_raster.SetGeoTransform(base_raster_info['geotransform'])
+    new_band = new_raster.GetRasterBand(1)
+    new_band.SetNoDataValue(base_raster_info['nodata'][0])
+    new_band = None
+    new_raster = None
+
+    where_clause = None
+    if field_id is not None:
+        where_clause = f'"{field_id}"="{field_value}"'
+    pygeoprocessing.rasterize(
+        vector_path, target_raster_path, burn_values=(1,), option_list=None,
+        where_clause=where_clause)
 
 
 def main():
@@ -177,7 +196,7 @@ def main():
                     MASK_DIR, f'{prefix}_global_{stitch_hash}.tif')
                 rasterize_task = task_graph.add_task(
                     func=rasterize_with_base,
-                    args=(vector_path, stitch_hash, global_target_path),
+                    args=(vector_path, stitch_raster_info, global_target_path),
                     target_path_list=[global_target_path],
                     task_name=f'rasterize {global_target_path}')
                 rasterized_dict[stitch_hash][f'{prefix}_global'] = (
@@ -187,7 +206,7 @@ def main():
                         MASK_DIR, f'{prefix}_{field_name}_{stitch_hash}.tif')
                     rasterize_task = task_graph.add_task(
                         func=rasterize_with_base,
-                        args=(vector_path, stitch_hash, local_target_path),
+                        args=(vector_path, stitch_raster_info, local_target_path),
                         kwargs={
                             'field_id': vector_field_id,
                             'field_value': field_name},
