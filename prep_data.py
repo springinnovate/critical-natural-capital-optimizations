@@ -183,8 +183,8 @@ def main():
             args=(stitch_raster_path,),
             dependent_task_list=[dependent_task],
             store_result=True,
-            task_name=f'get raster info for {stitch_raster_path}')
-        stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info.get())).hexdigest()
+            task_name=f'get raster info for {stitch_raster_path}').get()
+        stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info)).hexdigest()
         scenario_percent_to_hash[(scenario_id, percent_fill)] = stitch_hash
         if stitch_hash not in rasterized_dict:
             for prefix, vector_path, vector_field_id, field_names in [
@@ -194,6 +194,7 @@ def main():
                     ]:
                 global_target_path = os.path.join(
                     MASK_DIR, f'{prefix}_global_{stitch_hash}.tif')
+                LOGGER.debug(stitch_raster_info)
                 rasterize_task = task_graph.add_task(
                     func=rasterize_with_base,
                     args=(vector_path, stitch_raster_info, global_target_path),
