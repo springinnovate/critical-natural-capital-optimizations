@@ -145,7 +145,8 @@ def main():
             merge_task = task_graph.add_task(
                 func=merge_raster_set,
                 args=(raster_path_list, target_raster_path),
-                target_path_list=[target_raster_path])
+                target_path_list=[target_raster_path],
+                task_name=f'merge for {target_raster_path}')
             stitch_raster_task_list.append((target_raster_path, scenario_id, percent_fill, merge_task))
 
     eez_ids_names = task_graph.add_task(
@@ -161,8 +162,9 @@ def main():
         stitch_raster_info = task_graph.add_task(
             func=pygeoprocessing.get_raster_info,
             args=(stitch_raster_path,),
-            dependent_task_list=[dependent_task])
-        stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info))
+            dependent_task_list=[dependent_task],
+            task_name=f'get raster info for {stitch_raster_path}')
+        stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info.get()))
         scenario_percent_to_hash[(scenario_id, percent_fill)] = stitch_hash
         if stitch_hash not in rasterized_dict:
             for prefix, vector_path, vector_field_id, field_names in [
