@@ -165,7 +165,7 @@ def main():
             dependent_task_list=[dependent_task],
             store_result=True,
             task_name=f'get raster info for {stitch_raster_path}')
-        stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info.get())).hexdump()
+        stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info.get())).hexdigest()
         scenario_percent_to_hash[(scenario_id, percent_fill)] = stitch_hash
         if stitch_hash not in rasterized_dict:
             for prefix, vector_path, vector_field_id, field_names in [
