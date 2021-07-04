@@ -222,6 +222,7 @@ def main():
             stitch_raster_task_list:
         # for global & each country
         stitch_hash = scenario_percent_to_hash[(scenario_id, percent_fill)]
+        LOGGER.debug(f'this failed: {optimization_mask_raster_path}, {scenario_id}, {percent_fill}, {stitch_hash}, {country_ids_names}, {rasterized_dict}')
         scenario_stats_task = task_graph.add_task(
             func=calculate_pixel_stats,
             args=(
