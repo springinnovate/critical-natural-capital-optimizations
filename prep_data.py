@@ -159,87 +159,101 @@ def main():
                 raster_step_set[percent_fill].append(raster_path)
         for percent_fill, raster_path_list in raster_step_set.items():
             scenario_id = os.path.basename(solution_dir)
-            target_raster_path = os.path.join(
+            merged_raster_path = os.path.join(
                 STICH_DIR, f'{scenario_id}_{percent_fill}.tif')
             merge_task = task_graph.add_task(
                 func=merge_raster_set,
-                args=(raster_path_list, target_raster_path),
-                target_path_list=[target_raster_path],
-                task_name=f'merge for {target_raster_path}')
-            stitch_raster_task_list.append((target_raster_path, scenario_id, percent_fill, merge_task))
+                args=(raster_path_list, merged_raster_path),
+                target_path_list=[merged_raster_path],
+                task_name=f'merge for {merged_raster_path}')
+            stitch_raster_task_list.append(
+                (merged_raster_path, scenario_id, percent_fill, merge_task))
 
-    eez_ids_names = task_graph.add_task(
-        func=get_field_names,
-        args=(EEZ_VECTOR_PATH, EEZ_FIELD_ID), store_result=True).get()
-    country_ids_names = task_graph.add_task(
-        func=get_field_names,
-        args=(COUNTRY_VECTOR_PATH, COUNTRY_FIELD_ID), store_result=True).get()
+            eez_stats_task = task_graph.add_task(
+                func=pygeoprocessing.zonal_statistics,
+                args=(merged_raster_path, EEZ_VECTOR_PATH),
+                dependent_task_list=[merge_task],
+                store_result=True,
+                task_name=f'eez stats for {merged_raster_path}')
+            country_stats_task = task_graph.add_task(
+                func=pygeoprocessing.zonal_statistics,
+                args=(merged_raster_path, COUNTRY_VECTOR_PATH),
+                dependent_task_list=[merge_task],
+                store_result=True,
+                task_name=f'country stats for {merged_raster_path}')
 
-    rasterized_dict = collections.defaultdict(dict)
-    scenario_percent_to_hash = dict()
-    for stitch_raster_path, scenario_id, percent_fill, dependent_task in stitch_raster_task_list:
-        stitch_raster_info = task_graph.add_task(
-            func=pygeoprocessing.get_raster_info,
-            args=(stitch_raster_path,),
-            dependent_task_list=[dependent_task],
-            store_result=True,
-            task_name=f'get raster info for {stitch_raster_path}').get()
-        stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info)).hexdigest()
-        scenario_percent_to_hash[(scenario_id, percent_fill)] = stitch_hash
-        if stitch_hash not in rasterized_dict:
-            for prefix, vector_path, vector_field_id, field_names in [
-                    ('eez', EEZ_VECTOR_PATH, EEZ_FIELD_ID, eez_ids_names),
-                    ('country', COUNTRY_VECTOR_PATH, COUNTRY_FIELD_ID,
-                     country_ids_names),
-                    ]:
-                global_target_path = os.path.join(
-                    MASK_DIR, f'{prefix}_global_{stitch_hash}.tif')
-                LOGGER.debug(stitch_raster_info)
-                rasterize_task = task_graph.add_task(
-                    func=rasterize_with_base,
-                    args=(vector_path, stitch_raster_info, global_target_path),
-                    target_path_list=[global_target_path],
-                    task_name=f'rasterize {global_target_path}')
-                rasterized_dict[stitch_hash][f'{prefix}_global'] = (
-                    global_target_path, rasterize_task)
-                for field_name in field_names:
-                    local_target_path = os.path.join(
-                        MASK_DIR, f'{prefix}_{field_name}_{stitch_hash}.tif')
-                    rasterize_task = task_graph.add_task(
-                        func=rasterize_with_base,
-                        args=(vector_path, stitch_raster_info, local_target_path),
-                        kwargs={
-                            'field_id': vector_field_id,
-                            'field_value': field_name},
-                        target_path_list=[local_target_path],
-                        task_name=f'rasterize {local_target_path}')
-                    rasterized_dict[stitch_hash][f'{prefix}_{field_name}'] = (
-                        local_target_path, rasterize_task)
+    # eez_ids_names = task_graph.add_task(
+    #     func=get_field_names,
+    #     args=(EEZ_VECTOR_PATH, EEZ_FIELD_ID), store_result=True).get()
+    # country_ids_names = task_graph.add_task(
+    #     func=get_field_names,
+    #     args=(COUNTRY_VECTOR_PATH, COUNTRY_FIELD_ID), store_result=True).get()
 
-    # for each scenario
-    scenario_to_stats_map = collections.defaultdict(dict)
-    for (optimization_mask_raster_path, scenario_id, percent_fill, merge_task) in \
-            stitch_raster_task_list:
-        # for global & each country
-        stitch_hash = scenario_percent_to_hash[(scenario_id, percent_fill)]
-        LOGGER.debug(f'this failed: {optimization_mask_raster_path}, {scenario_id}, {percent_fill}, {stitch_hash}, {country_ids_names}, {rasterized_dict}')
-        scenario_stats_task = task_graph.add_task(
-            func=calculate_pixel_stats,
-            args=(
-                optimization_mask_raster_path, scenario_id, percent_fill,
-                stitch_hash, country_ids_names, rasterized_dict),
-            dependent_task_list=[merge_task],
-            store_result=True,
-            task_name=f'stats for {scenario_id}{percent_fill}')
-        scenario_to_stats_map[(scenario_id, percent_fill)] = \
-            scenario_stats_task
+    # rasterized_dict = collections.defaultdict(dict)
+    # scenario_percent_to_hash = dict()
+    # for stitch_raster_path, scenario_id, percent_fill, dependent_task in stitch_raster_task_list:
+    #     stitch_raster_info = task_graph.add_task(
+    #         func=pygeoprocessing.get_raster_info,
+    #         args=(stitch_raster_path,),
+    #         dependent_task_list=[dependent_task],
+    #         store_result=True,
+    #         task_name=f'get raster info for {stitch_raster_path}').get()
+    #     stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info)).hexdigest()
+    #     scenario_percent_to_hash[(scenario_id, percent_fill)] = stitch_hash
+    #     if stitch_hash not in rasterized_dict:
+    #         for prefix, vector_path, vector_field_id, field_names in [
+    #                 ('eez', EEZ_VECTOR_PATH, EEZ_FIELD_ID, eez_ids_names),
+    #                 ('country', COUNTRY_VECTOR_PATH, COUNTRY_FIELD_ID,
+    #                  country_ids_names),
+    #                 ]:
+    #             global_target_path = os.path.join(
+    #                 MASK_DIR, f'{prefix}_global_{stitch_hash}.tif')
+    #             LOGGER.debug(stitch_raster_info)
+    #             rasterize_task = task_graph.add_task(
+    #                 func=rasterize_with_base,
+    #                 args=(vector_path, stitch_raster_info, global_target_path),
+    #                 target_path_list=[global_target_path],
+    #                 task_name=f'rasterize {global_target_path}')
+    #             rasterized_dict[stitch_hash][f'{prefix}_global'] = (
+    #                 global_target_path, rasterize_task)
+    #             for field_name in field_names:
+    #                 local_target_path = os.path.join(
+    #                     MASK_DIR, f'{prefix}_{field_name}_{stitch_hash}.tif')
+    #                 rasterize_task = task_graph.add_task(
+    #                     func=rasterize_with_base,
+    #                     args=(vector_path, stitch_raster_info, local_target_path),
+    #                     kwargs={
+    #                         'field_id': vector_field_id,
+    #                         'field_value': field_name},
+    #                     target_path_list=[local_target_path],
+    #                     task_name=f'rasterize {local_target_path}')
+    #                 rasterized_dict[stitch_hash][f'{prefix}_{field_name}'] = (
+    #                     local_target_path, rasterize_task)
+
+    # # for each scenario
+    # scenario_to_stats_map = collections.defaultdict(dict)
+    # for (optimization_mask_raster_path, scenario_id, percent_fill, merge_task) in \
+    #         stitch_raster_task_list:
+    #     # for global & each country
+    #     stitch_hash = scenario_percent_to_hash[(scenario_id, percent_fill)]
+    #     LOGGER.debug(f'this failed: {optimization_mask_raster_path}, {scenario_id}, {percent_fill}, {stitch_hash}, {country_ids_names}, {rasterized_dict}')
+    #     scenario_stats_task = task_graph.add_task(
+    #         func=calculate_pixel_stats,
+    #         args=(
+    #             optimization_mask_raster_path, scenario_id, percent_fill,
+    #             stitch_hash, country_ids_names, rasterized_dict),
+    #         dependent_task_list=[merge_task],
+    #         store_result=True,
+    #         task_name=f'stats for {scenario_id}{percent_fill}')
+    #     scenario_to_stats_map[(scenario_id, percent_fill)] = \
+    #         scenario_stats_task
 
     # stitch_hash = hashlib.sha1(pickle.dumps(stitch_raster_info))
     # to get a task do this: rasterized_dict[stitch_hash][f'{prefix}_{field_name}']
     task_graph.close()
     task_graph.join()
     task_graph = None
-    LOGGER.info(f'all done: {scenario_to_stats_map}')
+    LOGGER.info(f'all done')
 
 
 def calculate_pixel_stats(
