@@ -20,7 +20,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.WARN)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -134,7 +134,7 @@ def rasterize_with_base(
 
 def main():
     """Entry point."""
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15.0)
+    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count()//2, 15.0)
     stitch_raster_task_list = []
     scenario_percent_type_map = collections.defaultdict(
         lambda: collections.defaultdict(dict))
