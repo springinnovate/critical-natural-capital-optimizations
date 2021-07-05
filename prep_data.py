@@ -171,13 +171,15 @@ def main():
 
             eez_stats_task = task_graph.add_task(
                 func=pygeoprocessing.zonal_statistics,
-                args=(merged_raster_path, EEZ_VECTOR_PATH),
+                args=((merged_raster_path, 1), EEZ_VECTOR_PATH),
+                kwargs={'polygons_might_overlap': False},
                 dependent_task_list=[merge_task],
                 store_result=True,
                 task_name=f'eez stats for {merged_raster_path}')
             country_stats_task = task_graph.add_task(
                 func=pygeoprocessing.zonal_statistics,
-                args=(merged_raster_path, COUNTRY_VECTOR_PATH),
+                args=((merged_raster_path, 1), COUNTRY_VECTOR_PATH),
+                kwargs={'polygons_might_overlap': False},
                 dependent_task_list=[merge_task],
                 store_result=True,
                 task_name=f'country stats for {merged_raster_path}')
