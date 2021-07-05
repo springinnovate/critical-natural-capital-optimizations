@@ -189,6 +189,14 @@ def main():
             vector_fid_field_map[vector_id][feature.GetFID()] = \
                 feature.GetField(vector_field)
 
+    for scenario_id, percent_region_type_map in \
+            scenario_percent_type_map.items():
+        for percent_fill, region_to_stats_map in \
+                percent_region_type_map.items():
+            LOGGER.debug(
+                f'{scenario_id},{percent_fill}:\n'
+                f'\t{region_to_stats_map["eez"].get()}\n'
+                f'\t{region_to_stats_map["country"].get()}\n')
 
     # eez_ids_names = task_graph.add_task(
     #     func=get_field_names,
