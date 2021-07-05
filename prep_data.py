@@ -36,11 +36,6 @@ os.makedirs(STICH_DIR, exist_ok=True)
 os.makedirs(MASK_DIR, exist_ok=True)
 
 
-def main():
-    """Entry point."""
-    pass
-
-
 def merge_raster_set(raster_path_list, target_raster_path):
     """Merge all the rasters into one target.
 
@@ -140,23 +135,18 @@ def rasterize_with_base(
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15.0)
-    worker_list = []
-    target_path_set = set()
     stitch_raster_task_list = []
-    solution_lookup = collections.defaultdict(list)
+    scenario_percent_type_map = collections.defaultdict(
+        lambda: collections.defaultdict(dict))
     for solution_dir in glob.glob(os.path.join(SOLUTIONS_DIR, '*')):
         if not os.path.isdir(solution_dir):
             continue
         raster_step_set = collections.defaultdict(list)
         raster_list = list(glob.glob(os.path.join(solution_dir, '*.tif')))
-        step_set = set()
         for raster_path in raster_list:
             match = re.match('.*[^\d](\d+)\.tif', raster_path)
-            if match:
-                percent_fill = int(match.group(1))
-                solution_lookup[os.path.basename(solution_dir)].append(
-                    percent_fill)
-                raster_step_set[percent_fill].append(raster_path)
+            percent_fill = int(match.group(1))
+            raster_step_set[percent_fill].append(raster_path)
         for percent_fill, raster_path_list in raster_step_set.items():
             scenario_id = os.path.basename(solution_dir)
             merged_raster_path = os.path.join(
@@ -183,6 +173,22 @@ def main():
                 dependent_task_list=[merge_task],
                 store_result=True,
                 task_name=f'country stats for {merged_raster_path}')
+
+            scenario_percent_type_map[scenario_id][percent_fill]['eez'] = \
+                eez_stats_task
+            scenario_percent_type_map[scenario_id][percent_fill]['country'] = \
+                country_stats_task
+
+    vector_fid_field_map = collections.defaultdict(dict)
+    for vector_path, vector_id, vector_field in [
+            (EEZ_VECTOR_PATH, 'eez', EEZ_FIELD_ID),
+            (COUNTRY_VECTOR_PATH, 'country', COUNTRY_FIELD_ID)]:
+        vector = gdal.OpenEx(vector_path, gdal.OF_VECTOR)
+        layer = vector.GetLayer()
+        for feature in layer:
+            vector_fid_field_map[vector_id][feature.GetFID()] = \
+                feature.GetField(vector_field)
+
 
     # eez_ids_names = task_graph.add_task(
     #     func=get_field_names,
