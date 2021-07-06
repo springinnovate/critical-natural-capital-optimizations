@@ -208,7 +208,7 @@ def main():
 
     table_file = open('result.csv', 'w')
     table_file.write(
-        'scenario,country,res_km,n_pu,n_selected,n_pu_land,n_selected_land,'
+        'scenario,percent_fill,country,res_km,n_pu,n_selected,n_pu_land,n_selected_land,'
         'prop_selected,sqkm_selected,prop_selected_land,sqkm_selected_land\n')
     for scenario_id, percent_region_type_map in \
             scenario_percent_type_map.items():
@@ -237,10 +237,10 @@ def main():
                         eez_stats['nodata_count']
 
                 table_file.write(
-                    f'''{scenario_id},{country_id},{get_stats(
+                    f'''{scenario_id},{percent_fill},{country_id},{get_stats(
                         RES_KM, country_stats, eez_stats)}\n''')
             table_file.write(
-                f'''{scenario_id},global,{get_stats(
+                f'''{scenario_id},{percent_fill},global,{get_stats(
                     RES_KM, global_country_stats, global_eez_stats)}\n''')
             table_file.flush()
     table_file.close()
