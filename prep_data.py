@@ -224,25 +224,23 @@ def main():
                 eez_fid = vector_fid_field_map['eez'][country_id]
                 country_stats = country_stats_map[country_fid]
                 global_country_stats['count'] += \
-                    country_stats[country_fid]['count']
+                    country_stats['count']
                 global_country_stats['nodata_count'] += \
-                    country_stats[country_fid]['nodata_count']
+                    country_stats['nodata_count']
                 eez_stats = None
                 if eez_fid is not None:
                     eez_stats = eez_stats_map[eez_fid]
                     global_eez_stats['count'] += \
-                        eez_stats[country_fid]['count']
+                        eez_stats['count']
                     global_eez_stats['nodata_count'] += \
-                        eez_stats[country_fid]['nodata_count']
+                        eez_stats['nodata_count']
 
                 table_file.write(
                     f'''{scenario_id},{country_id},{get_stats(
-                        country_fid, RES_KM, country_stats, eez_stats)}\n''')
-            eez_stats[-1] = global_eez_stats
-            country_stats[-1] = global_country_stats
+                        country_fid, eez_fid, RES_KM, country_stats, eez_stats)}\n''')
             table_file.write(
                 f'''{scenario_id},global,{get_stats(
-                    -1, RES_KM, country_stats, eez_stats)}\n''')
+                    RES_KM, global_country_stats, global_eez_stats)}\n''')
     table_file.close()
     task_graph.close()
     task_graph.join()
@@ -250,17 +248,17 @@ def main():
     LOGGER.info('all done')
 
 
-def get_stats(country_fid, res_km, country_stats_dict, eez_stats_dict):
+def get_stats(res_km, country_stats_dict, eez_stats_dict):
     """Return formatted stats."""
-    n_selected_land = country_stats_dict[country_fid]['count']
-    n_pu_land = country_stats_dict[country_fid]['nodata_count'] + n_selected_land
+    n_selected_land = country_stats_dict['count']
+    n_pu_land = country_stats_dict['nodata_count'] + n_selected_land
     prop_selected_land = n_selected_land / n_pu_land
 
     n_selected = n_selected_land
     n_pu = n_pu_land
-    if country_fid in eez_stats_dict:
-        n_selected_eez = eez_stats_dict[country_fid]['count']
-        n_pu_eez = eez_stats_dict[country_fid]['nodata_count'] + n_selected_eez
+    if eez_stats_dict is not None:
+        n_selected_eez = eez_stats_dict['count']
+        n_pu_eez = eez_stats_dict['nodata_count'] + n_selected_eez
         n_selected += n_selected_eez
         n_pu += n_pu_eez
     prop_selected = n_selected / n_pu
