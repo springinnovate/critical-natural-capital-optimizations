@@ -214,23 +214,35 @@ def main():
             scenario_percent_type_map.items():
         for percent_fill, region_to_stats_map in \
                 percent_region_type_map.items():
-            eez_stats = region_to_stats_map["eez"].get()
-            country_stats = region_to_stats_map["country"].get()
-            table_file.write(
-                f'{scenario_id},global')
+            eez_stats_map = region_to_stats_map["eez"].get()
+            country_stats_map = region_to_stats_map["country"].get()
+            global_country_stats = {'count': 0, 'nodata_count': 0}
+            global_eez_stats = {'count': 0, 'nodata_count': 0}
+            #table_file.write(f'{scenario_id},global')
             for country_id, country_fid in \
                     vector_fid_field_map['country'].items():
                 eez_fid = vector_fid_field_map['eez'][country_id]
-                LOGGER.debug(
-                    f'{scenario_id},{percent_fill},{country_id},{country_fid}:\n'
-                    f'\t{country_stats[country_fid]}\n')
+                country_stats = country_stats_map[country_fid]
+                global_country_stats['count'] += \
+                    country_stats[country_fid]['count']
+                global_country_stats['nodata_count'] += \
+                    country_stats[country_fid]['nodata_count']
+                eez_stats = None
                 if eez_fid is not None:
-                    LOGGER.debug(f'\t{eez_stats[eez_fid]}\n')
-                    pass
+                    eez_stats = eez_stats_map[eez_fid]
+                    global_eez_stats['count'] += \
+                        eez_stats[country_fid]['count']
+                    global_eez_stats['nodata_count'] += \
+                        eez_stats[country_fid]['nodata_count']
+
                 table_file.write(
                     f'''{scenario_id},{country_id},{get_stats(
-                        country_fid, RES_KM, country_stats[country_fid],
-                        eez_stats[country_fid])}\n''')
+                        country_fid, RES_KM, country_stats, eez_stats)}\n''')
+            eez_stats[-1] = global_eez_stats
+            country_stats[-1] = global_country_stats
+            table_file.write(
+                f'''{scenario_id},global,{get_stats(
+                    -1, RES_KM, country_stats, eez_stats)}\n''')
     table_file.close()
     task_graph.close()
     task_graph.join()
