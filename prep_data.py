@@ -144,7 +144,7 @@ def _zonal_stats(base_raster_path, vector_path):
         driver_name='GPKG', copy_fields=True)
     stats = pygeoprocessing.zonal_statistics(
         (base_raster_path, 1), reprojected_vector_path,
-        polygons_might_overlap=False)
+        polygons_might_overlap=False, ignore_nodata=False)
     shutil.rmtree(working_dir)
     return stats
 
@@ -222,6 +222,7 @@ def main():
             for country_id, country_fid in \
                     vector_fid_field_map['country'].items():
                 eez_fid = vector_fid_field_map['eez'][country_id]
+                LOGGER.debug(f'{country_id},{country_fid},{eez_fid}')
                 country_stats = country_stats_map[country_fid]
                 global_country_stats['count'] += \
                     country_stats['count']
@@ -237,10 +238,11 @@ def main():
 
                 table_file.write(
                     f'''{scenario_id},{country_id},{get_stats(
-                        country_fid, eez_fid, RES_KM, country_stats, eez_stats)}\n''')
+                        RES_KM, country_stats, eez_stats)}\n''')
             table_file.write(
                 f'''{scenario_id},global,{get_stats(
                     RES_KM, global_country_stats, global_eez_stats)}\n''')
+            table_file.flush()
     table_file.close()
     task_graph.close()
     task_graph.join()
