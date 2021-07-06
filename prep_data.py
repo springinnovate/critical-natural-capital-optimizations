@@ -229,7 +229,7 @@ def main():
                 global_country_stats['nodata_count'] += \
                     country_stats['nodata_count']
                 eez_stats = None
-                if eez_fid is not None:
+                if eez_fid is not None and eez_fid in eez_stats_map:
                     eez_stats = eez_stats_map[eez_fid]
                     global_eez_stats['count'] += \
                         eez_stats['count']
