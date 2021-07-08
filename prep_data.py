@@ -23,7 +23,8 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
-
+# Hi Becky, here's where you'll want to put your updated rasters, the script
+# expects them in the form of data/solutions/[SOLUTION_DIR]/[filename]_[percent].tif
 SOLUTIONS_DIR = 'data/solutions'
 STICH_DIR = 'churn/target_stitch_dir'
 COUNTRY_VECTOR_PATH = 'data/countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg'
@@ -140,6 +141,8 @@ def main():
     stitch_raster_task_list = []
     scenario_percent_type_map = collections.defaultdict(
         lambda: collections.defaultdict(dict))
+    # Hi Becky, you'll also need to change this value to any raster that's
+    # got the projection you want.
     base_raster_info = pygeoprocessing.get_raster_info(
         './data/solutions/A/solution_scenario-A_afg_target-5.tif')
     for vector_path, reprojected_vector_path in [
@@ -224,7 +227,6 @@ def main():
             country_stats_map = region_to_stats_map["country"].get()
             global_country_stats = {'count': 0, 'nodata_count': 0, 'sum': 0}
             global_eez_stats = {'count': 0, 'nodata_count': 0, 'sum': 0}
-            #table_file.write(f'{scenario_id},global')
             for country_id, country_fid in \
                     vector_fid_field_map['country'].items():
                 eez_fid = vector_fid_field_map['eez'][country_id]
@@ -250,7 +252,7 @@ def main():
                 f'''{scenario_id},{percent_fill},global,{get_stats(
                     RES_KM, global_country_stats, global_eez_stats)}\n''')
             table_file.flush()
-        break
+
     table_file.close()
     task_graph.close()
     task_graph.join()
