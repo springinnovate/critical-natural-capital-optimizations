@@ -28,6 +28,10 @@ SOLUTIONS_DIR = 'data/solutions'
 STICH_DIR = 'churn/target_stitch_dir'
 COUNTRY_VECTOR_PATH = 'data/countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg'
 EEZ_VECTOR_PATH = 'data/eez_iso_sov1_md5_d18f061b8628dc6da36067db7b485d3a.gpkg'
+
+REPROJECTED_COUNTRY_VECTOR_PATH = 'churn/reprojected/countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg'
+REPROJECTED_EEZ_VECTOR_PATH = 'churn/reprojected/eez_iso_sov1_md5_d18f061b8628dc6da36067db7b485d3a.gpkg'
+
 EEZ_FIELD_ID = 'ISO_SOV1'
 COUNTRY_FIELD_ID = 'iso3'
 RES_KM = 2.0
@@ -132,19 +136,19 @@ def rasterize_with_base(
 
 def _zonal_stats(base_raster_path, vector_path):
     """Calculate zonal stats of base over vector."""
-    raster_info = pygeoprocessing.get_raster_info(base_raster_path)
-    base_dir = os.path.join(os.path.dirname(vector_path), 'tmp')
-    os.makedirs(base_dir, exist_ok=True)
-    working_dir = tempfile.mkdtemp(dir=base_dir)
-    reprojected_vector_path = os.path.join(
-        working_dir, os.path.basename(vector_path))
-    pygeoprocessing.reproject_vector(
-        vector_path, raster_info['projection_wkt'],
-        reprojected_vector_path,
-        driver_name='GPKG', copy_fields=True)
+    #raster_info = pygeoprocessing.get_raster_info(base_raster_path)
+    #base_dir = os.path.join(os.path.dirname(vector_path), 'tmp')
+    #os.makedirs(base_dir, exist_ok=True)
+    #working_dir = tempfile.mkdtemp(dir=base_dir)
+    #reprojected_vector_path = os.path.join(
+    #    working_dir, os.path.basename(vector_path))
+    #pygeoprocessing.reproject_vector(
+    #    vector_path, raster_info['projection_wkt'],
+    #    reprojected_vector_path,
+    #    driver_name='GPKG', copy_fields=True)
     stats = pygeoprocessing.zonal_statistics(
-        (base_raster_path, 1), reprojected_vector_path,
-        polygons_might_overlap=False, ignore_nodata=False)
+        (base_raster_path, 1), vector_path,
+        polygons_might_overlap=False, ignore_nodata=True)
     shutil.rmtree(working_dir)
     return stats
 
@@ -155,6 +159,19 @@ def main():
     stitch_raster_task_list = []
     scenario_percent_type_map = collections.defaultdict(
         lambda: collections.defaultdict(dict))
+    base_raster_info = pygeoprocessing.get_raster_info(
+        './data/solutions/A/solution_scenario-A_afg_target-5.tif')
+    for vector_path, reprojected_vector_path in [
+            (EEZ_VECTOR_PATH, REPROJECTED_EEZ_VECTOR_PATH),
+            (COUNTRY_VECTOR_PATH, REPROJECTED_COUNTRY_VECTOR_PATH)]:
+        os.makedirs(
+            os.path.dirname(reprojected_vector_path), exist_ok=True)
+        pygeoprocessing.reproject_vector(
+            vector_path, base_raster_info['projection_wkt'],
+            reprojected_vector_path,
+            driver_name='GPKG', copy_fields=True)
+
+
     for solution_dir in glob.glob(os.path.join(SOLUTIONS_DIR, '*')):
         if not os.path.isdir(solution_dir):
             continue
@@ -176,16 +193,20 @@ def main():
                 task_name=f'merge for {merged_raster_path}')
             stitch_raster_task_list.append(
                 (merged_raster_path, scenario_id, percent_fill, merge_task))
-            LOGGER.debug(f'{merged_raster_path}, {EEZ_VECTOR_PATH}')
+
             eez_stats_task = task_graph.add_task(
-                func=_zonal_stats,
-                args=(merged_raster_path, EEZ_VECTOR_PATH),
+                func=pygeoprocessing.zonal_statistics,
+                args=(merged_raster_path, REPROJECTED_EEZ_VECTOR_PATH),
+                kwargs={
+                    'polygons_might_overlap': False, 'ignore_nodata': True},
                 dependent_task_list=[merge_task],
                 store_result=True,
                 task_name=f'eez stats for {merged_raster_path}')
             country_stats_task = task_graph.add_task(
-                func=_zonal_stats,
-                args=(merged_raster_path, COUNTRY_VECTOR_PATH),
+                func=pygeoprocessing.zonal_statistics,
+                args=(merged_raster_path, REPROJECTED_COUNTRY_VECTOR_PATH),
+                kwargs={
+                    'polygons_might_overlap': False, 'ignore_nodata': True},
                 dependent_task_list=[merge_task],
                 store_result=True,
                 task_name=f'country stats for {merged_raster_path}')
@@ -205,6 +226,7 @@ def main():
         for feature in layer:
             vector_fid_field_map[vector_id][feature.GetField(vector_field)] = \
                 feature.GetFID()
+    LOGGER.debug(vector_fid_field_map)
 
     table_file = open('result.csv', 'w')
     table_file.write(
@@ -216,25 +238,26 @@ def main():
                 percent_region_type_map.items():
             eez_stats_map = region_to_stats_map["eez"].get()
             country_stats_map = region_to_stats_map["country"].get()
-            global_country_stats = {'count': 0, 'nodata_count': 0}
-            global_eez_stats = {'count': 0, 'nodata_count': 0}
+            global_country_stats = {'count': 0, 'nodata_count': 0, 'sum': 0}
+            global_eez_stats = {'count': 0, 'nodata_count': 0, 'sum': 0}
             #table_file.write(f'{scenario_id},global')
             for country_id, country_fid in \
                     vector_fid_field_map['country'].items():
                 eez_fid = vector_fid_field_map['eez'][country_id]
                 LOGGER.debug(f'{country_id},{country_fid},{eez_fid}')
                 country_stats = country_stats_map[country_fid]
-                global_country_stats['count'] += \
-                    country_stats['count']
-                global_country_stats['nodata_count'] += \
-                    country_stats['nodata_count']
+                for stat_field in ['count', 'nodata_count', 'sum']:
+                    global_country_stats[stat_field] += \
+                        country_stats[stat_field]
+
                 eez_stats = None
-                if eez_fid is not None and eez_fid in eez_stats_map:
+                if eez_fid is not None:
+                    if eez_fid not in eez_stats_map:
+                        LOGGER.warn(f'{country_id} for {eez_fid} not exists')
+                        continue
                     eez_stats = eez_stats_map[eez_fid]
-                    global_eez_stats['count'] += \
-                        eez_stats['count']
-                    global_eez_stats['nodata_count'] += \
-                        eez_stats['nodata_count']
+                    for stat_field in ['count', 'nodata_count', 'sum']:
+                        global_eez_stats[stat_field] += eez_stats[stat_field]
 
                 table_file.write(
                     f'''{scenario_id},{percent_fill},{country_id},{get_stats(
@@ -243,6 +266,7 @@ def main():
                 f'''{scenario_id},{percent_fill},global,{get_stats(
                     RES_KM, global_country_stats, global_eez_stats)}\n''')
             table_file.flush()
+        break
     table_file.close()
     task_graph.close()
     task_graph.join()
@@ -252,15 +276,15 @@ def main():
 
 def get_stats(res_km, country_stats_dict, eez_stats_dict):
     """Return formatted stats."""
-    n_selected_land = country_stats_dict['count']
-    n_pu_land = country_stats_dict['nodata_count'] + n_selected_land
+    n_selected_land = country_stats_dict['sum']
+    n_pu_land = country_stats_dict['nodata_count'] + country_stats_dict['count']
     prop_selected_land = n_selected_land / n_pu_land
 
     n_selected = n_selected_land
     n_pu = n_pu_land
     if eez_stats_dict is not None:
-        n_selected_eez = eez_stats_dict['count']
-        n_pu_eez = eez_stats_dict['nodata_count'] + n_selected_eez
+        n_selected_eez = eez_stats_dict['sum']
+        n_pu_eez = eez_stats_dict['nodata_count'] + eez_stats_dict['count']
         n_selected += n_selected_eez
         n_pu += n_pu_eez
     prop_selected = n_selected / n_pu
