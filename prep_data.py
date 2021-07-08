@@ -188,6 +188,7 @@ def main():
                 kwargs={
                     'polygons_might_overlap': False, 'ignore_nodata': True},
                 dependent_task_list=[merge_task],
+                ignore_path_list=[REPROJECTED_COUNTRY_EEZ_VECTOR_PATH],
                 store_result=True,
                 task_name=f'eez stats for {merged_raster_path}')
             country_stats_task = task_graph.add_task(
@@ -196,6 +197,7 @@ def main():
                 kwargs={
                     'polygons_might_overlap': False, 'ignore_nodata': True},
                 dependent_task_list=[merge_task],
+                ignore_path_list=[REPROJECTED_COUNTRY_VECTOR_PATH],
                 store_result=True,
                 task_name=f'country stats for {merged_raster_path}')
 
