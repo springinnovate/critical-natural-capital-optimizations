@@ -150,13 +150,14 @@ def main():
             (COUNTRY_VECTOR_PATH, REPROJECTED_COUNTRY_VECTOR_PATH)]:
         os.makedirs(
             os.path.dirname(reprojected_vector_path), exist_ok=True)
-        task_graph.add_task(
-            func=pygeoprocessing.reproject_vector,
-            args=(
-                vector_path, base_raster_info['projection_wkt'],
-                reprojected_vector_path),
-            kwargs={'driver_name': 'GPKG', 'copy_fields': True},
-            task_name=f'reproject {vector_path}')
+        if not os.path.exists(reprojected_vector_path):
+            task_graph.add_task(
+                func=pygeoprocessing.reproject_vector,
+                args=(
+                    vector_path, base_raster_info['projection_wkt'],
+                    reprojected_vector_path),
+                kwargs={'driver_name': 'GPKG', 'copy_fields': True},
+                task_name=f'reproject {vector_path}')
     task_graph.join()
 
     for solution_dir in glob.glob(os.path.join(SOLUTIONS_DIR, '*')):
