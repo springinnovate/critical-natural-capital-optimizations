@@ -134,25 +134,6 @@ def rasterize_with_base(
         where_clause=where_clause)
 
 
-def _zonal_stats(base_raster_path, vector_path):
-    """Calculate zonal stats of base over vector."""
-    #raster_info = pygeoprocessing.get_raster_info(base_raster_path)
-    #base_dir = os.path.join(os.path.dirname(vector_path), 'tmp')
-    #os.makedirs(base_dir, exist_ok=True)
-    #working_dir = tempfile.mkdtemp(dir=base_dir)
-    #reprojected_vector_path = os.path.join(
-    #    working_dir, os.path.basename(vector_path))
-    #pygeoprocessing.reproject_vector(
-    #    vector_path, raster_info['projection_wkt'],
-    #    reprojected_vector_path,
-    #    driver_name='GPKG', copy_fields=True)
-    stats = pygeoprocessing.zonal_statistics(
-        (base_raster_path, 1), vector_path,
-        polygons_might_overlap=False, ignore_nodata=True)
-    shutil.rmtree(working_dir)
-    return stats
-
-
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count()//2, 15.0)
@@ -166,11 +147,14 @@ def main():
             (COUNTRY_VECTOR_PATH, REPROJECTED_COUNTRY_VECTOR_PATH)]:
         os.makedirs(
             os.path.dirname(reprojected_vector_path), exist_ok=True)
-        pygeoprocessing.reproject_vector(
-            vector_path, base_raster_info['projection_wkt'],
-            reprojected_vector_path,
-            driver_name='GPKG', copy_fields=True)
-
+        task_graph.add_task(
+            func=pygeoprocessing.reproject_vector,
+            args=(
+                vector_path, base_raster_info['projection_wkt'],
+                reprojected_vector_path),
+            kwargs={'driver_name': 'GPKG', 'copy_fields': True},
+            task_name=f'reproject {vector_path}')
+    task_graph.join()
 
     for solution_dir in glob.glob(os.path.join(SOLUTIONS_DIR, '*')):
         if not os.path.isdir(solution_dir):
@@ -196,7 +180,7 @@ def main():
 
             eez_stats_task = task_graph.add_task(
                 func=pygeoprocessing.zonal_statistics,
-                args=(merged_raster_path, REPROJECTED_EEZ_VECTOR_PATH),
+                args=((merged_raster_path, 1), REPROJECTED_EEZ_VECTOR_PATH),
                 kwargs={
                     'polygons_might_overlap': False, 'ignore_nodata': True},
                 dependent_task_list=[merge_task],
@@ -204,7 +188,7 @@ def main():
                 task_name=f'eez stats for {merged_raster_path}')
             country_stats_task = task_graph.add_task(
                 func=pygeoprocessing.zonal_statistics,
-                args=(merged_raster_path, REPROJECTED_COUNTRY_VECTOR_PATH),
+                args=((merged_raster_path, 1), REPROJECTED_COUNTRY_VECTOR_PATH),
                 kwargs={
                     'polygons_might_overlap': False, 'ignore_nodata': True},
                 dependent_task_list=[merge_task],
@@ -219,8 +203,8 @@ def main():
     vector_fid_field_map = collections.defaultdict(
         lambda: collections.defaultdict(lambda: None))
     for vector_path, vector_id, vector_field in [
-            (EEZ_VECTOR_PATH, 'eez', EEZ_FIELD_ID),
-            (COUNTRY_VECTOR_PATH, 'country', COUNTRY_FIELD_ID)]:
+            (REPROJECTED_EEZ_VECTOR_PATH, 'eez', EEZ_FIELD_ID),
+            (REPROJECTED_COUNTRY_VECTOR_PATH, 'country', COUNTRY_FIELD_ID)]:
         vector = gdal.OpenEx(vector_path, gdal.OF_VECTOR)
         layer = vector.GetLayer()
         for feature in layer:
