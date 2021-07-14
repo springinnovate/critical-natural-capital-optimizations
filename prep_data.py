@@ -135,9 +135,16 @@ def rasterize_with_base(
         where_clause=where_clause)
 
 
+def _zonal_statistics(base_raster_path, vector_path, job_id):
+    """Passthrough for zonal stats with a job_id so it can be unique."""
+    return pygeoprocessing.zonal_statistics(
+        (merged_raster_path, 1), REPROJECTED_EEZ_VECTOR_PATH,
+        polygons_might_overlap=False, ignore_nodata=True)
+         
+
 def main():
     """Entry point."""
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count()//2, 15.0)
+    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15.0)
     stitch_raster_task_list = []
     scenario_percent_type_map = collections.defaultdict(
         lambda: collections.defaultdict(dict))
@@ -172,6 +179,7 @@ def main():
             raster_step_set[percent_fill].append(raster_path)
         for percent_fill, raster_path_list in raster_step_set.items():
             scenario_id = os.path.basename(solution_dir)
+
             merged_raster_path = os.path.join(
                 STICH_DIR, f'{scenario_id}_{percent_fill}.tif')
             merge_task = task_graph.add_task(
@@ -183,19 +191,15 @@ def main():
                 (merged_raster_path, scenario_id, percent_fill, merge_task))
 
             eez_stats_task = task_graph.add_task(
-                func=pygeoprocessing.zonal_statistics,
-                args=((merged_raster_path, 1), REPROJECTED_EEZ_VECTOR_PATH),
-                kwargs={
-                    'polygons_might_overlap': False, 'ignore_nodata': True},
+                func=_zonal_statistics,
+                args=((merged_raster_path, 1), REPROJECTED_EEZ_VECTOR_PATH, 'eez'),
                 dependent_task_list=[merge_task],
                 ignore_path_list=[REPROJECTED_EEZ_VECTOR_PATH], #This had been [REPROJECTED_EEZ_COUNTRY_VECTOR_PATH] but it wasn't defined anywhere so I changed it
                 store_result=True,
                 task_name=f'eez stats for {merged_raster_path}')
             country_stats_task = task_graph.add_task(
-                func=pygeoprocessing.zonal_statistics,
-                args=((merged_raster_path, 1), REPROJECTED_COUNTRY_VECTOR_PATH),
-                kwargs={
-                    'polygons_might_overlap': False, 'ignore_nodata': True},
+                func=_zonal_statistics,
+                args=((merged_raster_path, 1), REPROJECTED_COUNTRY_VECTOR_PATH, 'country'),
                 dependent_task_list=[merge_task],
                 ignore_path_list=[REPROJECTED_COUNTRY_VECTOR_PATH],
                 store_result=True,
@@ -233,7 +237,7 @@ def main():
             for country_id, country_fid in \
                     vector_fid_field_map['country'].items():
                 eez_fid = vector_fid_field_map['eez'][country_id]
-                LOGGER.debug(f'{country_id},{country_fid},{eez_fid}')
+                LOGGER.debug(f'{scenario_id},{percent_fill},{country_id},{country_fid},{eez_fid}')
                 country_stats = country_stats_map[country_fid]
                 for stat_field in ['count', 'nodata_count', 'sum']:
                     global_country_stats[stat_field] += \
