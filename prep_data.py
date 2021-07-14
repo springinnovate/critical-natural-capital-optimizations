@@ -138,7 +138,7 @@ def rasterize_with_base(
 def _zonal_statistics(base_raster_path, vector_path, job_id):
     """Passthrough for zonal stats with a job_id so it can be unique."""
     return pygeoprocessing.zonal_statistics(
-        (merged_raster_path, 1), REPROJECTED_EEZ_VECTOR_PATH,
+        (base_raster_path, 1), vector_path,
         polygons_might_overlap=False, ignore_nodata=True)
          
 
@@ -192,14 +192,14 @@ def main():
 
             eez_stats_task = task_graph.add_task(
                 func=_zonal_statistics,
-                args=((merged_raster_path, 1), REPROJECTED_EEZ_VECTOR_PATH, 'eez'),
+                args=(merged_raster_path, REPROJECTED_EEZ_VECTOR_PATH, 'eez'),
                 dependent_task_list=[merge_task],
                 ignore_path_list=[REPROJECTED_EEZ_VECTOR_PATH], #This had been [REPROJECTED_EEZ_COUNTRY_VECTOR_PATH] but it wasn't defined anywhere so I changed it
                 store_result=True,
                 task_name=f'eez stats for {merged_raster_path}')
             country_stats_task = task_graph.add_task(
                 func=_zonal_statistics,
-                args=((merged_raster_path, 1), REPROJECTED_COUNTRY_VECTOR_PATH, 'country'),
+                args=(merged_raster_path, REPROJECTED_COUNTRY_VECTOR_PATH, 'country'),
                 dependent_task_list=[merge_task],
                 ignore_path_list=[REPROJECTED_COUNTRY_VECTOR_PATH],
                 store_result=True,
