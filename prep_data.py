@@ -284,7 +284,9 @@ def get_stats(res_km, country_stats_dict, eez_stats_dict):
         n_pu_eez = eez_stats_dict['nodata_count'] + eez_stats_dict['count']
         n_selected += n_selected_eez
         n_pu += n_pu_eez
-    prop_selected = n_selected / n_pu
+    prop_selected = 0
+    if n_pu > 0:
+        prop_selected = n_selected / n_pu
     sqkm_selected = n_selected * res_km**2
     sqkm_selected_land = n_selected_land * res_km**2
     return f'{res_km},{n_pu},{n_selected},{n_pu_land},{n_selected_land},{prop_selected},{sqkm_selected},{prop_selected_land},{sqkm_selected_land}'
