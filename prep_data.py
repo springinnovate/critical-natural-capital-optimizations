@@ -152,6 +152,7 @@ def main():
     # got the projection you want.
     base_raster_info = pygeoprocessing.get_raster_info(
         './data/solutions/A/solution_scenario-A_afg_target-5.tif')
+
     for vector_path, reprojected_vector_path in [
             (EEZ_VECTOR_PATH, REPROJECTED_EEZ_VECTOR_PATH),
             (COUNTRY_VECTOR_PATH, REPROJECTED_COUNTRY_VECTOR_PATH)]:
@@ -167,7 +168,8 @@ def main():
                 task_name=f'reproject {vector_path}')
     task_graph.join()
 
-    for solution_dir in glob.glob(os.path.join(SOLUTIONS_DIR, '*')):
+    priority = 0    
+    for solution_dir in sorted(glob.glob(os.path.join(SOLUTIONS_DIR, '*'))):
         if not os.path.isdir(solution_dir):
             continue
 
@@ -186,7 +188,9 @@ def main():
                 func=merge_raster_set,
                 args=(raster_path_list, merged_raster_path),
                 target_path_list=[merged_raster_path],
+                priority = priority,
                 task_name=f'merge for {merged_raster_path}')
+            priority-=1 #this makes the earlier letters go first
             stitch_raster_task_list.append(
                 (merged_raster_path, scenario_id, percent_fill, merge_task))
 
