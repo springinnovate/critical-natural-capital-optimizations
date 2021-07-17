@@ -151,7 +151,8 @@ def main():
     # Hi Becky, you'll also need to change this value to any raster that's
     # got the projection you want.
     base_raster_info = pygeoprocessing.get_raster_info(
-        './data/solutions/A/solution_scenario-A_afg_target-5.tif')
+        #'./data/solutions/A/solution_scenario-A_afg_target-5.tif')
+        './data/solutions/A/masked_all_nathab_wstreams_original_01.tif')
 
     for vector_path, reprojected_vector_path in [
             (EEZ_VECTOR_PATH, REPROJECTED_EEZ_VECTOR_PATH),
