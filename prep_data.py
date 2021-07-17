@@ -276,7 +276,9 @@ def get_stats(res_km, country_stats_dict, eez_stats_dict):
     """Return formatted stats."""
     n_selected_land = country_stats_dict['sum']
     n_pu_land = country_stats_dict['nodata_count'] + country_stats_dict['count']
-    prop_selected_land = n_selected_land / n_pu_land
+    prop_selected_land = 0
+    if n_pu_land > 0:
+        prop_selected_land = n_selected_land / n_pu_land
 
     n_selected = n_selected_land
     n_pu = n_pu_land
